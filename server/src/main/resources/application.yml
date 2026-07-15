@@ -10,8 +10,10 @@ spring:
     active: dev
 
   # 数据源配置（开发环境）
+  # 端口 5433 是 host 端口（Docker 内 PostgreSQL 还是 5432）
+  # 原因：宿主机 PostgreSQL 已占用 5432，所以 docker-compose 用 5433 → 5432 映射
   datasource:
-    url: jdbc:postgresql://localhost:5432/docpilot_db
+    url: jdbc:postgresql://127.0.0.1:5433/docpilot_db
     username: docpilot
     password: ${POSTGRES_PASSWORD:docpilot_dev_password}
     driver-class-name: org.postgresql.Driver

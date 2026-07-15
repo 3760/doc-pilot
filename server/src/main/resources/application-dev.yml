@@ -1,7 +1,7 @@
 # 开发环境特定配置
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/docpilot_db
+    url: jdbc:postgresql://127.0.0.1:5432/docpilot_db
     username: docpilot
     password: ${POSTGRES_PASSWORD:docpilot_dev_password}
 
