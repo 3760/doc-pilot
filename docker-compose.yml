@@ -1,0 +1,81 @@
+# ========================================
+# DocPilot Docker Compose
+# ========================================
+# 用于本地开发环境
+# 启动：docker compose up -d
+# 停止：docker compose down
+# ========================================
+
+version: "3.9"
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:16-alpine
+    container_name: docpilot-postgres
+    environment:
+      POSTGRES_DB: docpilot_db
+      POSTGRES_USER: docpilot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docpilot_dev_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./server/src/main/resources/db/migration:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docpilot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - docpilot-net
+
+  # Redis（缓存 + 会话存储，Phase 2 启用）
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: docpilot-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   networks:
+  #     - docpilot-net
+
+  # Spring Boot 后端（待 server/ 实施后启用）
+  # server:
+  #   build:
+  #     context: ./server
+  #   container_name: docpilot-server
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   environment:
+  #     SPRING_PROFILES_ACTIVE: docker
+  #     DATABASE_URL: jdbc:postgresql://postgres:5432/docpilot_db
+  #     DATABASE_USERNAME: docpilot
+  #     DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-docpilot_dev_password}
+  #   ports:
+  #     - "8080:8080"
+  #   networks:
+  #     - docpilot-net
+
+  # Vue 3 前端（待 web/ 实施后启用）
+  # web:
+  #   build:
+  #     context: ./web
+  #   container_name: docpilot-web
+  #   ports:
+  #     - "5173:5173"
+  #   networks:
+  #     - docpilot-net
+
+volumes:
+  postgres-data:
+    name: docpilot-postgres-data
+  # redis-data:
+  #   name: docpilot-redis-data
+
+networks:
+  docpilot-net:
+    name: docpilot-network
+    driver: bridge
