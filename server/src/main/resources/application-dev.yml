@@ -1,0 +1,14 @@
+# 开发环境特定配置
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/docpilot_db
+    username: docpilot
+    password: ${POSTGRES_PASSWORD:docpilot_dev_password}
+
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    com.docpilot: DEBUG
+    dev.langchain4j: DEBUG
