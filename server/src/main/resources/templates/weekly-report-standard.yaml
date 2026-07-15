@@ -1,0 +1,151 @@
+# ========================================
+# DocPilot 标准周报模板
+# ========================================
+# 对应 ADR 0013 模板系统 3 子能力
+# 文件加载：TemplateLoader.java 启动时扫描此 YAML
+# ========================================
+
+id: weekly-report-standard
+name: 标准周报
+category: weekly
+description: 项目总监周报 - 4 章节标准结构
+
+# ===== 子能力 4.1：输入结构 =====
+inputStructure:
+  - id: project_info
+    title: 项目基本信息
+    type: form
+    required: true
+    fields:
+      - id: project_name
+        label: 项目名称
+        type: text
+        required: true
+      - id: report_period
+        label: 报告周期
+        type: date_range
+        required: true
+        autoFill: current_week
+      - id: reporter
+        label: 汇报人
+        type: user
+        required: true
+        autoFill: current_user
+      - id: project_stage
+        label: 项目阶段
+        type: select
+        required: false
+        options:
+          - 启动
+          - 规划
+          - 执行
+          - 收尾
+
+  - id: completed
+    title: 本周完成事项
+    type: list
+    required: true
+    fields:
+      - id: work_items
+        label: 工作事项
+        type: text
+        required: true
+      - id: completion_status
+        label: 完成状态
+        type: select
+        required: true
+        options:
+          - 已完成
+          - 进行中
+          - 延期
+          - 取消
+      - id: progress
+        label: 进度
+        type: text
+        required: false
+      - id: notes
+        label: 备注
+        type: textarea
+        required: false
+
+  - id: planned
+    title: 下周计划
+    type: list
+    required: true
+    fields:
+      - id: plan_items
+        label: 计划事项
+        type: text
+        required: true
+      - id: priority
+        label: 优先级
+        type: select
+        required: true
+        options:
+          - 高
+          - 中
+          - 低
+      - id: expected_outcome
+        label: 预期产出
+        type: text
+        required: false
+
+  - id: risks
+    title: 风险与支持
+    type: textarea
+    required: false
+    fields:
+      - id: risks_and_issues
+        label: 风险与问题
+        type: textarea
+        required: false
+      - id: needs_support
+        label: 需要支持
+        type: textarea
+        required: false
+
+# ===== 子能力 4.2：追问清单 =====
+followupQuestions:
+  - sectionId: project_info
+    questions:
+      - "项目当前阶段是否有变化？"
+      - "本期是否有重要里程碑？"
+
+  - sectionId: completed
+    questions:
+      - "完成的工作量如何量化？"
+      - "有没有遇到卡点？"
+      - "是否需要调整计划？"
+
+  - sectionId: planned
+    questions:
+      - "下周优先级最高的事项是？"
+      - "预期产出如何衡量？"
+
+  - sectionId: risks
+    questions:
+      - "需要的支持具体是什么？"
+      - "影响范围多大？何时必须解决？"
+
+# ===== 子能力 4.3：输出格式 =====
+outputFormat:
+  templateHtml: weekly-report-template.vue
+  sectionsOrder:
+    - project_info
+    - completed
+    - planned
+    - risks
+  style:
+    theme: professional
+    primaryColor: "#1DAFAD"   # Ipsos 青绿
+    font: "Microsoft YaHei"  # 系统中文字体
+  richTextRules:
+    maxImages: 5
+    maxImageSizeMb: 2
+    maxTableRows: 20
+  charts:
+    enabled: true
+    types:
+      - progress_bar     # 进度条
+      - completion_pie   # 完成度饼图
+      - priority_bar     # 优先级柱状图
