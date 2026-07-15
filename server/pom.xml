@@ -59,10 +59,17 @@
             <artifactId>flyway-core</artifactId>
         </dependency>
 
+        <!-- Jackson YAML (用于 TemplateLoader 加载 YAML 模板) -->
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-database-postgresql</artifactId>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-yaml</artifactId>
         </dependency>
+
+        <!--
+            flyway-database-postgresql 是 Flyway 10.x 起拆分的独立模块
+            （Spring Boot 3.3+ 的 BOM 默认包含，3.2.5 还没有）
+            当前 flyway-core 自带 PostgreSQL 支持，无需额外声明
+        -->
 
         <!-- LangChain4j - AI 框架 -->
         <dependency>
