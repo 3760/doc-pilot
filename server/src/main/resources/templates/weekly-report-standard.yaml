@@ -1,16 +1,31 @@
 # ========================================
-# DocPilot 标准周报模板
+# DocPilot 标准周报模板 (v2.1)
 # ========================================
 # 对应 ADR 0013 模板系统 3 子能力
 # 文件加载：TemplateLoader.java 启动时扫描此 YAML
+# 版本演进：v1 (2026-07-14) → v2 (2026-07-15 ADR 0013) → v2.1 (2026-07-16 增强)
+#   v2.1 新增：追问轮数限制、metadata 元信息、template_hints、示例数据
 # ========================================
 
-id: weekly-report-standard
-name: 标准周报
-category: weekly
-description: 项目总监周报 - 4 章节标准结构
+# ===== 模板元信息（新增 v2.1） =====
+metadata:
+  templateId: weekly-report-standard
+  version: "2.1"
+  author: 虾仔
+  createdAt: "2026-07-14"
+  updatedAt: "2026-07-16"
+  changelog:
+    - "v2.1: 新增追问轮数限制、metadata、template_hints、sample"
+    - "v2.0: 拆 3 子能力 (ADR 0013)"
+    - "v1.0: 初始版本（模糊 AI 对话引导配置）"
+  applicableRoles:
+    - 项目总监
+    - PM
+    - 部门经理
 
 # ===== 子能力 4.1：输入结构 =====
+# 决定每章节要收集什么信息
+# 消费者：功能 1 模式 A「AI 拆解」—— 按此结构提取信息
 inputStructure:
   - id: project_info
     title: 项目基本信息
@@ -21,6 +36,7 @@ inputStructure:
         label: 项目名称
         type: text
         required: true
+        placeholder: 如：人保三期 NPS
       - id: report_period
         label: 报告周期
         type: date_range
@@ -63,6 +79,7 @@ inputStructure:
         label: 进度
         type: text
         required: false
+        placeholder: 如：80% 或 已完成测试
       - id: notes
         label: 备注
         type: textarea
@@ -105,29 +122,46 @@ inputStructure:
         required: false
 
 # ===== 子能力 4.2：追问清单 =====
+# 决定每章节要追问什么
+# 消费者：模式 A 拆解后的信息缺口追问 / 模式 B 上周计划追问 / 模式 C 冷启动
 followupQuestions:
   - sectionId: project_info
+    maxRounds: 3  # 新增 v2.1：必填章节 3 轮追问上限
     questions:
       - "项目当前阶段是否有变化？"
       - "本期是否有重要里程碑？"
+      - "项目干系人是否有变动？"
 
   - sectionId: completed
+    maxRounds: 3
     questions:
       - "完成的工作量如何量化？"
       - "有没有遇到卡点？"
       - "是否需要调整计划？"
 
   - sectionId: planned
+    maxRounds: 3
     questions:
       - "下周优先级最高的事项是？"
       - "预期产出如何衡量？"
+      - "是否有依赖外部的事项？"
 
   - sectionId: risks
+    maxRounds: 1  # 新增 v2.1：可选章节 1 轮追问上限
     questions:
       - "需要的支持具体是什么？"
       - "影响范围多大？何时必须解决？"
 
+# 追问超出后处理（新增 v2.1）
+# 必填章节超出 maxRounds：自动生成完整周报，标注「信息不完整」
+# 可选章节超出 maxRounds：自动跳过该章节
+followupOverflowPolicy:
+  required: auto_generate_with_warning
+  optional: auto_skip
+
 # ===== 子能力 4.3：输出格式 =====
+# 决定 HTML 周报长什么样
+# 消费者：功能 3「HTML 导出」—— 渲染时按此格式生成
 outputFormat:
   templateHtml: weekly-report-template.vue
   sectionsOrder:
@@ -149,3 +183,76 @@ outputFormat:
       - progress_bar     # 进度条
       - completion_pie   # 完成度饼图
       - priority_bar     # 优先级柱状图
+
+# ===== 模板提示（新增 v2.1） =====
+# 供前端和 AI LLM 使用的元提示
+templateHints:
+  shortDescription: "标准周报 - 4 章节"
+  longDescription: "项目总监周报模板，含 4 个章节（项目基本信息、本周完成、下周计划、风险与支持）。适用于项目总监、PM、部门经理。"
+  estimatedCompletionTime: "20-40 秒"
+  requiredSectionsCount: 3  # project_info / completed / planned
+  optionalSectionsCount: 1  # risks
+  totalFollowupQuestionsCount: 11
+  bestFor:
+    - 每周固定汇报
+    - 跨项目并行管理
+    - 团队工作透明化
+
+# ===== 示例数据（新增 v2.1） =====
+# 供前端 Demo + 测试 + 文档示例使用
+sample:
+  description: "一个完整的填写示例，供前端演示和测试使用"
+  data:
+    project_info:
+      project_name: "人保三期 NPS"
+      report_period: "2026-07-13 ~ 2026-07-19"
+      reporter: "王燕春"
+      project_stage: "执行"
+    completed:
+      - work_items: "完成支付模块联调"
+        completion_status: "已完成"
+        progress: "100%"
+        notes: "联调通过 12 个测试用例"
+      - work_items: "XX 接口联调"
+        completion_status: "进行中"
+        progress: "70%"
+        notes: "剩 3 个测试用例"
+      - work_items: "ZZ 测试"
+        completion_status: "延期"
+        progress: "50%"
+        notes: "等待 YY 联调"
+    planned:
+      - plan_items: "完成 ZZ 测试"
+        priority: "高"
+        expected_outcome: "全部测试通过"
+      - plan_items: "启动验收准备"
+        priority: "中"
+        expected_outcome: "验收文档初稿"
+    risks:
+      risks_and_issues: "YY 联调延期 1 天"
+      needs_support: "需要 YY 团队优先处理"
+  renderedHtmlPreview: |
+    <h1>2026-W28 周报 - 人保三期 NPS</h1>
+    <h2>📋 项目基本信息</h2>
+    <table>
+      <tr><td><b>项目名称</b></td><td>人保三期 NPS</td></tr>
+      <tr><td><b>报告周期</b></td><td>2026-07-13 ~ 2026-07-19</td></tr>
+      <tr><td><b>汇报人</b></td><td>王燕春</td></tr>
+      <tr><td><b>项目阶段</b></td><td>执行</td></tr>
+    </table>
+    <h2>✅ 本周完成事项</h2>
+    <ul>
+      <li>✓ 完成支付模块联调（100%）</li>
+      <li>◐ XX 接口联调（70%）</li>
+      <li>✗ ZZ 测试（延期 50%）</li>
+    </ul>
+    <!-- chart: completion_pie data={"completed": 1, "in_progress": 1, "delayed": 1} -->
+    <h2>📅 下周计划</h2>
+    <ul>
+      <li><span style="color:#E74C3C">[高]</span> 完成 ZZ 测试</li>
+      <li><span style="color:#F39C12">[中]</span> 启动验收准备</li>
+    </ul>
+    <!-- chart: priority_bar data={"高": 1, "中": 1, "低": 0} -->
+    <h2>⚠️ 风险与支持</h2>
+    <p><b>风险：</b>YY 联调延期 1 天</p>
+    <p><b>需要支持：</b>需要 YY 团队优先处理</p>
