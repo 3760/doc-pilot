@@ -20,6 +20,11 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     Optional<Report> findBySessionId(String sessionId);
 
     /**
+     * 按创建时间倒序，取最近 1 条（用于 HistoryLinker）.
+     */
+    Optional<Report> findTopByOrderByCreatedAtDesc();
+
+    /**
      * 按创建时间倒序，取最近 N 条（用于查找最新一周周报）.
      */
     List<Report> findTop10ByOrderByCreatedAtDesc();

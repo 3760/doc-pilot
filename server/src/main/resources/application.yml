@@ -7,7 +7,7 @@ spring:
     name: docpilot-server
 
   profiles:
-    active: dev
+    active: default  # 默认 5433端口连docker container；dev profile 仅供直连容器时使用
 
   # 数据源配置（开发环境）
   # 端口 5433 是 host 端口（Docker 内 PostgreSQL 还是 5432）

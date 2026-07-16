@@ -33,7 +33,12 @@ import java.util.stream.Collectors;
 public class TemplateLoader {
 
     private final ResourcePatternResolver resourcePatternResolver;
-    private final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
+
+    /**
+     * YAML 解析器 - 配置容错（v2.1 增强字段在 JSON 可被忽略）.
+     */
+    private final ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory())
+        .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     /** 模板池：templateId -> TemplateConfig */
     private final Map<String, TemplateConfig> templates = new HashMap<>();
@@ -48,12 +53,22 @@ public class TemplateLoader {
         for (Resource resource : resources) {
             try {
                 TemplateConfig config = yamlMapper.readValue(resource.getInputStream(), TemplateConfig.class);
-                if (config.getId() == null || config.getId().isBlank()) {
+
+                // v2.1 后顶层 id 可能为 null，从 metadata.templateId 回退
+                String templateId = config.getId();
+                if ((templateId == null || templateId.isBlank())
+                        && config.getMetadata() != null
+                        && config.getMetadata().getTemplateId() != null) {
+                    templateId = config.getMetadata().getTemplateId();
+                    config.setId(templateId);
+                }
+
+                if (templateId == null || templateId.isBlank()) {
                     log.warn("跳过无 ID 的模板: {}", resource.getFilename());
                     continue;
                 }
-                templates.put(config.getId(), config);
-                log.info("已加载模板: {} ({})", config.getId(), config.getName());
+                templates.put(templateId, config);
+                log.info("已加载模板: {} ({})", templateId, config.getName());
             } catch (Exception e) {
                 log.error("加载模板失败: {}", resource.getFilename(), e);
             }
