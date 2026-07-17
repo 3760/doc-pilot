@@ -2,9 +2,10 @@ package com.docpilot.controller;
 
 import com.docpilot.agent.WeeklyReportAgent;
 import com.docpilot.exception.BusinessExceptions;
+import com.docpilot.history.ContextExtractor;
+import com.docpilot.history.HistoryLinker;
 import com.docpilot.template.TemplateConfig;
 import com.docpilot.template.TemplateLoader;
-import com.docpilot.history.HistoryLinker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
@@ -42,6 +43,7 @@ public class ChatController {
     private final WeeklyReportAgent weeklyReportAgent;
     private final TemplateLoader templateLoader;
     private final HistoryLinker historyLinker;
+    private final ContextExtractor contextExtractor;
 
     /**
      * SSE 流式对话接口.
@@ -103,7 +105,7 @@ public class ChatController {
                 // 按 chunk 推送（实际 MVP 阶段一次返回完整内容，前端再分 chunk 渲染）
                 // TODO Phase 2: 真实流式（用 streamingChatLanguageModel）
                 sendChunkEvent(emitter, aiResponse, 1);
-                sendDoneEvent(emitter, java.util.Collections.singletonMap("tokensUsed", 0));
+                sendDoneEvent(emitter, Map.of("tokensUsed", 0, "mode", mode));
 
             } catch (BusinessExceptions.LLMTimeoutException e) {
                 log.warn("LLM 调用超时", e);
@@ -119,7 +121,13 @@ public class ChatController {
     }
 
     /**
-     * 调用 WeeklyReportAgent，按模式分发.
+     * 调用 WeeklyReportAgent，按模式分发（Q-044 修复 B/C 占位符）.
+     *
+     * <p>修复点：
+     * <ul>
+     *   <li>模式 B：从 latestReport 正确提取 last_week_plan[] + last_week_risks[]（用 ContextExtractor）</li>
+     *   <li>模式 C：从模板 followupQuestions 转结构化 prompt（不再是字面量 "[]"）</li>
+     * </ul>
      */
     private String invokeAgent(
             String sessionId,
@@ -131,30 +139,70 @@ public class ChatController {
 
         return switch (mode) {
             case "A" -> weeklyReportAgent.decomposeUserInput(sessionId, message, templateHint);
+
             case "B" -> {
                 var latestReport = historyLinker.getLatestReport();
-                String lastWeekPlan = latestReport.map(r -> r.getMetadata() != null ? r.getMetadata().toString() : "[]").orElse("[]");
-                String lastWeekRisks = "[]";  // MVP 简化：从 metadata 提取
-                String questions = weeklyReportAgent.generateContextualQuestions(
-                        sessionId, lastWeekPlan, lastWeekRisks);
-                yield questions;
+                var ctx = contextExtractor.extract(latestReport.orElse(null));
+                log.debug("模式 B 上下文: planLen={}, risksLen={}",
+                        ctx.lastWeekPlan().length(), ctx.lastWeekRisks().length());
+                yield weeklyReportAgent.generateContextualQuestions(
+                        sessionId, ctx.lastWeekPlan(), ctx.lastWeekRisks());
             }
-            case "C" -> weeklyReportAgent.generateFollowup(
-                    sessionId,
-                    "[]",  // 冷启动无进度
-                    formatFollowupQuestions(template)
-            );
+
+            case "C" -> {
+                // 把模板追问清单从 List<Followup> 序列化为 JSON 字符串（每章节含 questions[]）
+                String followupJson = serializeFollowupQuestions(template);
+                yield weeklyReportAgent.generateFollowup(sessionId, "[]", followupJson);
+            }
+
             default -> throw new IllegalArgumentException("无效模式: " + mode);
         };
     }
 
     /**
-     * 把模板的 followupQuestions 序列化为 JSON 字符串（注入 LLM prompt）.
+     * 序列化模板的 followupQuestions 为结构化 JSON.
+     *
+     * <p>输出格式：
+     * <pre>
+     * [{"sectionId":"project_info","questions":["Q1","Q2"]}, ...]
+     * </pre>
      */
-    private String formatFollowupQuestions(TemplateConfig template) {
-        var questions = template.getFollowupQuestions();
-        if (questions == null) return "[]";
-        return questions.toString();
+    private String serializeFollowupQuestions(TemplateConfig template) {
+        if (template == null || template.getFollowupQuestions() == null) {
+            return "[]";
+        }
+        var followups = template.getFollowupQuestions();
+        StringBuilder sb = new StringBuilder("[");
+        boolean first = true;
+        for (var f : followups) {
+            if (!first) sb.append(",");
+            first = false;
+            sb.append("{\"sectionId\":\"").append(escapeJson(f.getSectionId())).append("\",");
+            sb.append("\"maxRounds\":").append(f.getMaxRounds() != null ? f.getMaxRounds() : 3).append(",");
+            sb.append("\"questions\":[");
+            if (f.getQuestions() != null) {
+                boolean firstQ = true;
+                for (String q : f.getQuestions()) {
+                    if (!firstQ) sb.append(",");
+                    firstQ = false;
+                    sb.append("\"").append(escapeJson(q)).append("\"");
+                }
+            }
+            sb.append("]}");
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    /**
+     * 简单 JSON 字符串转义（用于手动拼 JSON，避免引号破坏结构）.
+     */
+    private String escapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r");
     }
 
     private void sendChunkEvent(SseEmitter emitter, String content, int chunkIndex) {
