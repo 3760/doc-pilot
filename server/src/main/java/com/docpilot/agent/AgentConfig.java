@@ -4,7 +4,7 @@ import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.anthropic.AnthropicChatModel;
 import dev.langchain4j.model.chat.ChatLanguageModel;
-// ChatMemory bean 已不再被 WeeklyReportAgent 直接使用，保留仅供其他 component 调用
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,38 +18,78 @@ import static dev.langchain4j.service.AiServices.builder;
  *
  * <p>手动构建 ChatLanguageModel（避免依赖 spring-boot-starter 自动配置的 classpath 扫描），
  * 然后用 AiServices.builder() 创建 WeeklyReportAgent 实例。
+ *
+ * <p>Qwen Fallback 策略（设计 04 § 11.4）：
+ * <ul>
+ *   <li>SELECT_LLM=m3（默认）→ 用 minimax M3</li>
+ *   <li>SELECT_LLM=qwen + QWEN_ENABLED=true → 用 Qwen</li>
+ *   <li>自动 fallback（M3 失败 → Qwen）：Phase 2 启用</li>
+ * </ul>
  */
+@Slf4j
 @Configuration
 public class AgentConfig {
 
+    // ===== 主 LLM（minimax M3） =====
     @Value("${langchain4j.open-ai.chat-model.base-url:https://api.minimax.io/anthropic}")
-    private String baseUrl;
+    private String m3BaseUrl;
 
-    @Value("${langchain4j.open-ai.chat-model.api-key:sk-placeholder-replace-me}")
-    private String apiKey;
+    @Value("${langchain4j.open-ai.chat-model.api-key:sk-pla…e-me}")
+    private String m3ApiKey;
 
     @Value("${langchain4j.open-ai.chat-model.model-name:MiniMax-M3}")
-    private String modelName;
+    private String m3ModelName;
 
     @Value("${langchain4j.open-ai.chat-model.timeout:60s}")
-    private Duration timeout;
+    private Duration m3Timeout;
+
+    // ===== Fallback LLM（Qwen） =====
+    @Value("${langchain4j.qwen.enabled:false}")
+    private boolean qwenEnabled;
+
+    @Value("${langchain4j.qwen.base-url:https://dashscope.aliyuncs.com/compatible-mode/v1}")
+    private String qwenBaseUrl;
+
+    @Value("${langchain4j.qwen.api-key:sk-qwen-placeholder}")
+    private String qwenApiKey;
+
+    @Value("${langchain4j.qwen.model-name:qwen-plus}")
+    private String qwenModelName;
+
+    @Value("${langchain4j.qwen.timeout:60s}")
+    private Duration qwenTimeout;
+
+    // ===== 主备选择 =====
+    @Value("${llm.primary:m3}")
+    private String primaryLlm;
 
     /**
-     * ChatLanguageModel 实例 - 用 Anthropic 兼容协议连 minimax.
-     *
-     * <p>minimax 的 API 路径是 https://api.minimax.io/anthropic，baseUrl 是 anthropic 兼容端点。
+     * ChatLanguageModel 实例 - 按 SELECT_LLM 自动选 m3 或 qwen.
      */
     @Bean
     public ChatLanguageModel chatLanguageModel() {
-        // Retrofit 校验：baseUrl 必须以 / 结尾
-        String normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+        if ("qwen".equalsIgnoreCase(primaryLlm) && qwenEnabled) {
+            log.info("使用 Fallback LLM: Qwen ({}, model={})",
+                    normalizeBaseUrl(qwenBaseUrl), qwenModelName);
+            return AnthropicChatModel.builder()
+                .baseUrl(normalizeBaseUrl(qwenBaseUrl))
+                .apiKey(qwenApiKey)
+                .modelName(qwenModelName)
+                .temperature(0.7)
+                .maxTokens(4096)
+                .timeout(qwenTimeout)
+                .build();
+        }
+
+        log.info("使用主 LLM: minimax M3 ({}, model={})",
+                normalizeBaseUrl(m3BaseUrl), m3ModelName);
         return AnthropicChatModel.builder()
-            .baseUrl(normalizedBaseUrl)
-            .apiKey(apiKey)
-            .modelName(modelName)
+            .baseUrl(normalizeBaseUrl(m3BaseUrl))
+            .apiKey(m3ApiKey)
+            .modelName(m3ModelName)
             .temperature(0.7)
             .maxTokens(4096)
-            .timeout(timeout)
+            .timeout(m3Timeout)
             .build();
     }
 
@@ -76,5 +116,12 @@ public class AgentConfig {
                 .maxMessages(20)
                 .build())
             .build();
+    }
+
+    /**
+     * Retrofit 校验：baseUrl 必须以 / 结尾.
+     */
+    private String normalizeBaseUrl(String url) {
+        return url.endsWith("/") ? url : url + "/";
     }
 }

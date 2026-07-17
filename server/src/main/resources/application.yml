@@ -54,6 +54,21 @@ langchain4j:
       max-tokens: 4096
       timeout: 60s
 
+  # Fallback LLM（Qwen - 通义千问，设计 04 § 11.4）
+  # 启用方式：SELECT_LLM=qwen + QWEN_ENABLED=true
+  qwen:
+    enabled: ${QWEN_ENABLED:false}
+    base-url: ${QWEN_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+    api-key: ${QWEN_API_KEY:sk-qwen-placeholder}
+    model-name: ${QWEN_MODEL:qwen-plus}
+    temperature: 0.7
+    max-tokens: 4096
+    timeout: 60s
+
+# LLM 主备选择（设计 04 § 11.4）
+llm:
+  primary: ${SELECT_LLM:m3}  # m3 | qwen
+
 # 服务器配置
 server:
   port: 8080
