@@ -20,15 +20,36 @@
     </div>
     <div class="header-right">
       <span class="project-period">📅 {{ projectPeriod }}</span>
-      <el-button link @click="onHistory">
+      <el-button link @click="openHistory">
         <el-icon><Document /></el-icon>
         历史
       </el-button>
-      <el-button link>
+      <el-button link @click="openSettings">
         <el-icon><Setting /></el-icon>
         设置
       </el-button>
     </div>
+
+    <!-- 历史周报 Dialog -->
+    <HistoryDialog v-model="historyVisible" @loaded="onHistoryLoaded" />
+
+    <!-- 设置 Dialog（MVP 简化版）-->
+    <el-dialog v-model="settingsVisible" title="设置" width="500px">
+      <el-form label-width="100px">
+        <el-form-item label="当前 LLM">
+          <el-tag>minimax MiniMax-M3（开发）</el-tag>
+        </el-form-item>
+        <el-form-item label="Fallback">
+          <el-tag type="info">Qwen（需配置 QWEN_API_KEY）</el-tag>
+        </el-form-item>
+        <el-form-item label="API Key">
+          <span style="color: #909399">由后端环境变量管理，不在前端暴露</span>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button type="primary" @click="settingsVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </header>
 </template>
 
@@ -36,14 +57,22 @@
 import { ref, computed, onMounted } from 'vue';
 import { Document, Setting } from '@element-plus/icons-vue';
 import { useTemplateStore } from '@/stores/template';
+import { useSessionStore } from '@/stores/session';
+import { useReportStore } from '@/stores/report';
+import { ElMessage } from 'element-plus';
+import HistoryDialog from './HistoryDialog.vue';
+import type { Report } from '@/types';
 
 const templateStore = useTemplateStore();
+const sessionStore = useSessionStore();
+const reportStore = useReportStore();
 
 const templates = computed(() => templateStore.availableTemplates);
 const currentTemplateId = ref<string>('');
+const historyVisible = ref(false);
+const settingsVisible = ref(false);
 
 const projectPeriod = computed(() => {
-  // 默认显示自然周（如 "2026-W28"）
   const now = new Date();
   const year = now.getFullYear();
   const onejan = new Date(year, 0, 1);
@@ -58,13 +87,58 @@ onMounted(async () => {
   }
 });
 
+/**
+ * 切换模板 → 清空当前会话（设计 05 § 6.2 模式切换）。
+ *
+ * 注：MVP 简化版，不保存草稿提示。
+ */
 function onTemplateChange(templateId: string) {
   templateStore.loadTemplate(templateId);
+  sessionStore.reset();
+  reportStore.reset();
+  ElMessage.success(`已切换模板：${templateId}`);
 }
 
-function onHistory() {
-  // MVP 阶段暂未实现
-  alert('历史功能开发中（Phase 1.5 启用）');
+function openHistory() {
+  historyVisible.value = true;
+}
+
+function openSettings() {
+  settingsVisible.value = true;
+}
+
+/**
+ * 历史周报加载完成（设计 03 § 4.3 模式 B 触发条件）。
+ *
+ * HistoryDialog 已设置 mode=B + sessionId；这里把报告内容渲染到 PreviewPane。
+ */
+function onHistoryLoaded(report: Report) {
+  if (report.content) {
+    // 注意：report.content 已是 HTML（保存时已 marked 渲染）
+    reportStore.setPreviewHtml(stripHtmlTags(report.content));
+    reportStore.setCurrentId(report.id);
+    reportStore.setStatus('generated');
+  }
+}
+
+/**
+ * 简单 HTML → Markdown 反向转换（用于把历史周报导入到 PreviewPane）。
+ *
+ * MVP 阶段做基础转换：去除标签，保留换行结构。
+ */
+function stripHtmlTags(html: string): string {
+  return html
+    .replace(/<\/?(h[1-6])>/gi, (m, tag) => `\n${m.startsWith('</') ? '' : '#'} `)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<li>/gi, '- ')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .trim();
 }
 </script>
 

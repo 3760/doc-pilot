@@ -17,6 +17,10 @@ export const useSessionStore = defineStore('session', {
       this.mode = mode;
     },
 
+    setSessionId(id: string) {
+      this.sessionId = id;
+    },
+
     addMessage(msg: ChatMessage) {
       this.messages.push(msg);
     },
