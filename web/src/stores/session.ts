@@ -6,7 +6,7 @@ import type { ChatMessage, Mode } from '@/types';
  */
 export const useSessionStore = defineStore('session', {
   state: () => ({
-    sessionId: crypto.randomUUID(),
+    sessionId: String(crypto.randomUUID()),
     mode: 'C' as Mode,  // 默认冷启动
     messages: [] as ChatMessage[],
     isStreaming: false,
@@ -49,7 +49,7 @@ export const useSessionStore = defineStore('session', {
     },
 
     reset() {
-      this.sessionId = crypto.randomUUID();
+      this.sessionId = String(crypto.randomUUID());
       this.messages = [];
       this.isStreaming = false;
     },

@@ -1,81 +1,70 @@
-# ========================================
-# DocPilot Docker Compose
-# ========================================
-# 用于本地开发环境
-# 启动：docker compose up -d
-# 停止：docker compose down
-# ========================================
-
-version: "3.9"
+version: '3.8'
 
 services:
-  # PostgreSQL 数据库
   postgres:
     image: postgres:16-alpine
     container_name: docpilot-postgres
     environment:
       POSTGRES_DB: docpilot_db
       POSTGRES_USER: docpilot
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docpilot_dev_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docpil_dev_password}
     ports:
-      - "5433:5432"  # host 5433 → container 5432（避开宿主机 PostgreSQL 端口冲突）
+      - "5433:5432"   # 宿主机 5433 → 容器 5432（避免与本地 PG 冲突）
     volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./server/src/main/resources/db/migration:/docker-entrypoint-initdb.d
+      - docpilot_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U docpilot"]
+      test: ["CMD-SHELL", "pg_isready -U docpilot -d docpilot_db"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - docpilot-net
 
-  # Redis（缓存 + 会话存储，Phase 2 启用）
-  # redis:
-  #   image: redis:7-alpine
-  #   container_name: docpilot-redis
-  #   ports:
-  #     - "6379:6379"
-  #   volumes:
-  #     - redis-data:/data
-  #   networks:
-  #     - docpilot-net
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: docpilot-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # 数据库（用 docker service 名作为主机名）
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docpil_dev_password}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/docpilot_db
+      SPRING_DATASOURCE_USERNAME: docpilot
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-docpil_dev_password}
+      # LLM
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.minimax.io/anthropic}
+      LLM_API_KEY: ${LLM_API_KEY:-sk-placeholder}
+      LLM_MODEL: ${LLM_MODEL:-MiniMax-M3}
+      # Fallback
+      SELECT_LLM: ${SELECT_LLM:-m3}
+      QWEN_ENABLED: ${QWEN_ENABLED:-false}
+      QWEN_BASE_URL: ${QWEN_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      QWEN_API_KEY: ${QWEN_API_KEY:-sk-qwen-placeholder}
+      QWEN_MODEL: ${QWEN_MODEL:-qwen-plus}
+      JAVA_OPTS: "-Xms256m -Xmx512m"
+    ports:
+      - "8080:8080"
+    networks:
+      - docpilot-net
 
-  # Spring Boot 后端（待 server/ 实施后启用）
-  # server:
-  #   build:
-  #     context: ./server
-  #   container_name: docpilot-server
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   environment:
-  #     SPRING_PROFILES_ACTIVE: docker
-  #     DATABASE_URL: jdbc:postgresql://postgres:5432/docpilot_db
-  #     DATABASE_USERNAME: docpilot
-  #     DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-docpilot_dev_password}
-  #   ports:
-  #     - "8080:8080"
-  #   networks:
-  #     - docpilot-net
-
-  # Vue 3 前端（待 web/ 实施后启用）
-  # web:
-  #   build:
-  #     context: ./web
-  #   container_name: docpilot-web
-  #   ports:
-  #     - "5173:5173"
-  #   networks:
-  #     - docpilot-net
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: docpilot-web
+    depends_on:
+      - server
+    ports:
+      - "8081:80"   # 宿主机 8081 → 容器 80（Nginx）
+    networks:
+      - docpilot-net
 
 volumes:
-  postgres-data:
-    name: docpilot-postgres-data
-  # redis-data:
-  #   name: docpilot-redis-data
+  docpilot_pgdata:
 
 networks:
   docpilot-net:
-    name: docpilot-network
     driver: bridge
