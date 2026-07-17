@@ -3,6 +3,7 @@ package com.docpilot.agent;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.anthropic.AnthropicChatModel;
+import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -65,13 +66,15 @@ public class AgentConfig {
 
     /**
      * ChatLanguageModel 实例 - 按 SELECT_LLM 自动选 m3 或 qwen.
+     *
+     * <p>两个分支都用 OpenAI 兼容客户端（因为 minimax 和 Qwen 都是 OpenAI Chat Completions 协议）。
      */
     @Bean
     public ChatLanguageModel chatLanguageModel() {
         if ("qwen".equalsIgnoreCase(primaryLlm) && qwenEnabled) {
             log.info("使用 Fallback LLM: Qwen ({}, model={})",
                     normalizeBaseUrl(qwenBaseUrl), qwenModelName);
-            return AnthropicChatModel.builder()
+            return OpenAiChatModel.builder()
                 .baseUrl(normalizeBaseUrl(qwenBaseUrl))
                 .apiKey(qwenApiKey)
                 .modelName(qwenModelName)
@@ -83,7 +86,7 @@ public class AgentConfig {
 
         log.info("使用主 LLM: minimax M3 ({}, model={})",
                 normalizeBaseUrl(m3BaseUrl), m3ModelName);
-        return AnthropicChatModel.builder()
+        return OpenAiChatModel.builder()
             .baseUrl(normalizeBaseUrl(m3BaseUrl))
             .apiKey(m3ApiKey)
             .modelName(m3ModelName)
