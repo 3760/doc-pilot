@@ -49,4 +49,11 @@ public class BusinessExceptions {
     public static class LLMParseFailedException extends RuntimeException {
         public LLMParseFailedException(String message) { super(message); }
     }
+
+    /**
+     * 参数校验失败（HTTP 400 + VALIDATION_FAILED）.
+     */
+    public static class ValidationException extends RuntimeException {
+        public ValidationException(String message) { super(message); }
+    }
 }
