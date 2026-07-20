@@ -306,6 +306,41 @@ Content-Disposition: attachment; filename="report-123.html"
 
 ---
 
+### 3.6.1 `DELETE /api/v1/reports/{id}` — 删除周报 🆕 (2026-07-20 实现)
+
+**业务背景**：允许用户删除历史周报，重新生成。
+
+**请求**：
+```http
+DELETE /api/v1/reports/123
+```
+
+**响应**：
+- **204 No Content** — 删除成功
+- **404 REPORT_NOT_FOUND** — ID 不存在
+- **500** — 其他异常
+
+**约束**：
+- 幂等设计（补加：不存在报 404，不静默成功）
+- 该周报为「当前会话」时需同步重置 sessionId
+
+**实现要点**：
+```java
+@Transactional
+public void deleteById(Long id) {
+    if (!reportRepository.existsById(id)) {
+        throw new ReportNotFoundException(id);
+    }
+    reportRepository.deleteById(id);
+}
+
+@DeleteMapping("/{id}")
+public ResponseEntity<Void> delete(@PathVariable Long id) {
+    reportService.deleteById(id);
+    return ResponseEntity.noContent().build();
+}
+```
+
 ### 3.7 `GET /api/v1/templates` — 列出可用模板
 
 **响应 200**：

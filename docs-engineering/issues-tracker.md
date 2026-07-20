@@ -4,7 +4,7 @@
 >
 > **维护**：每次 E2E 测试发现 bug 立即追加；解决后标记 ✅ 已解决 + 关闭原因
 >
-> **最后更新**：2026-07-20
+> **最后更新**：2026-07-20 14:05
 
 ---
 
@@ -15,7 +15,7 @@
 | 🔴 阻塞 | P0 必修，阻塞 MVP 验收 |
 | 🟡 进行中 | 正在处理 |
 | 🟢 已解决 | 已修复并验证 |
-| ⚪ 已废弃 | 不再需要（重复 / 需求变更） |
+| ⚪ 已废弃 | 不再需要（重复 / 需求变更）|
 
 ---
 
@@ -39,7 +39,7 @@
 - **commit**：2026-07-17 推进
 
 ### BUG-001: `generateContextualQuestions` 缺 `@UserMessage` 注解
-- **状态**：🟢 已解决
+- **状态**：🟢 已解决 (2026-07-20 11:30)
 - **发现日期**：2026-07-20
 - **发现者**：虾仔（E2E 测试 C-04-04）
 - **优先级**：🔴 阻塞（LangChain4j 无法识别 user message）
@@ -49,23 +49,19 @@
   - `server/src/main/java/com/docpilot/agent/WeeklyReportAgent.java`：加 `@UserMessage String userMessage` 参数
   - `server/src/main/java/com/docpilot/controller/ChatController.java`：调用时传 `message` 参数
 - **验证**：C-04-04 + C-04 全过（4/4）
-- **commit**：待提交
+- **commit**：`47db033`
 
 ### BUG-002: SSE 断言格式错误
-- **状态**：🟢 已解决
-- **发现日期**：2026-07-20
-- **发现者**：虾仔（E2E 测试 C-04-02）
+- **状态**：🟢 已解决 (2026-07-20 11:30)
 - **优先级**：🟡 中（测试代码 bug，非生产）
 - **症状**：C-04-02 正则 `^data:` 不匹配实际 SSE 格式
 - **根因**：实际 SSE 格式是 `event:chunk\ndata:{...}\n\nevent:done\ndata:{...}\n`
 - **修复**：`tests-e2e/e2e/c04-sse-stream.spec.ts`：正则改为 `event:chunk\ndata:.*`
 - **验证**：C-04 全过（4/4）
-- **commit**：待提交
+- **commit**：`47db033`
 
 ### BUG-003: HikariCP 默认超时太长（30s）
-- **状态**：🟢 已解决
-- **发现日期**：2026-07-20
-- **发现者**：虾仔（E2E 测试 C-25）
+- **状态**：🟢 已解决 (2026-07-20 11:30)
 - **优先级**：🔴 阻塞（生产环境 PG 故障时系统级雪崩）
 - **症状**：PG 停止时 server hang 30s 才返回错误
 - **根因**：`spring.datasource.hikari.connection-timeout` 默认 30000ms
@@ -75,12 +71,10 @@
   spring.datasource.hikari.initialization-fail-timeout: -1
   ```
 - **验证**：C-25 1/1 通过（PG 停止 → 5s 内返回 DB_CONNECTION_FAILED）
-- **commit**：待提交
+- **commit**：`47db033`
 
 ### BUG-004: `CannotCreateTransactionException` / `DataAccessException` / `SQLException` 未被 handler 捕获
-- **状态**：🟢 已解决
-- **发现日期**：2026-07-20
-- **发现者**：虾仔（E2E 测试 C-25 第二次失败）
+- **状态**：🟢 已解决 (2026-07-20 11:30)
 - **优先级**：🔴 阻塞（PG 故障时返回 500 INTERNAL_ERROR 而非 503 DB_CONNECTION_FAILED）
 - **症状**：PG 停止时返回 500，错误信息暴露"内部错误"
 - **根因**：`GlobalExceptionHandler` 没有 handler 覆盖 Hibernate 的 `CannotCreateTransactionException`（继承 `DataAccessException`）
@@ -91,12 +85,10 @@
   @ExceptionHandler(SQLException.class)                     // → 503 DB_CONNECTION_FAILED
   ```
 - **验证**：C-25 1/1 通过
-- **commit**：待提交
+- **commit**：`47db033`
 
 ### BUG-005: `BusinessExceptions.ValidationException` 未被 handler 捕获
-- **状态**：🟢 已解决
-- **发现日期**：2026-07-20
-- **发现者**：虾仔（E2E 测试 C-16-03）
+- **状态**：🟢 已解决 (2026-07-20 11:30)
 - **优先级**：🟡 中（limit 边界校验返 500 而非 400）
 - **症状**：`GET /api/v1/reports?limit=0` 返回 500
 - **根因**：`ReportController` 抛 `ValidationException`，但 `GlobalExceptionHandler` 只 handler 了 `IllegalArgumentException`
@@ -105,12 +97,10 @@
   @ExceptionHandler(BusinessExceptions.ValidationException.class) // → 400 VALIDATION_FAILED
   ```
 - **验证**：C-16 3/3 通过
-- **commit**：待提交
+- **commit**：`47db033`
 
 ### BUG-006: `MethodArgumentTypeMismatchException` 未被 handler 捕获
-- **状态**：🟢 已解决
-- **发现日期**：2026-07-20
-- **发现者**：虾仔（E2E 测试 C-40-03 / C-41-03）
+- **状态**：🟢 已解决 (2026-07-20 11:30)
 - **优先级**：🟡 中（路径参数类型错误返 500 而非 400）
 - **症状**：`GET /api/v1/reports/abc` 返回 500
 - **根因**：`@PathVariable Long id` 类型转换失败抛 `MethodArgumentTypeMismatchException`
@@ -119,13 +109,29 @@
   @ExceptionHandler(MethodArgumentTypeMismatchException.class) // → 400 VALIDATION_FAILED
   ```
 - **验证**：C-40 3/3 + C-41 3/3 通过
-- **commit**：待提交
+- **commit**：`47db033`
+
+### BUG-007: DELETE /api/v1/reports/{id} 端点未实现
+- **状态**：🟢 已解决 (2026-07-20 12:30)
+- **发现者**：虾仔（Wave 1 E2E 跨 spec 隔离测试发现）
+- **优先级**：🟢 P2（之前）
+- **症状**：调用 `DELETE /api/v1/reports/{id}` 返回 500 INTERNAL_ERROR
+- **根因**：`ReportController` 未实现 `@DeleteMapping` 端点
+- **修复**：
+  1. `ReportService.deleteById(Long id)`：事务 + existsById 预检 → deleteById
+  2. `ReportController.delete()`：`@DeleteMapping("/{id}")` → service.deleteById → 204
+  3. 文档：ReportController 注释 5 个端点（POST/GET/GET/GET/DELETE）
+- **验证**：
+  - DELETE /api/v1/reports/999 → 404 REPORT_NOT_FOUND ✓
+  - DELETE /api/v1/reports/{realId} → 204 ✓
+  - GET /api/v1/reports/{id} → 404 ✓
+- **commit**：`4b62706`
 
 ---
 
 ## 待办（无当前未解决项）
 
-> 2026-07-20 12:30 之前发现的 7 个 bug 全部已解决
+> 2026-07-20 14:00 之前发现的 9 个 bug 全部已解决
 >
 > **零待处理项**
 
@@ -135,40 +141,49 @@
 
 | 指标 | 值 |
 |------|-----|
-| 总 bug 数（自项目启动）| 8 |
-| 已解决 | 8 |
+| 总 bug 数（自项目启动）| 9 |
+| 已解决 | 9 |
 | 待解决 | 0 |
-| 解决率 | **100%** |
+| **解决率** | **100%** |
 | 平均发现到解决时间 | < 1 小时（同 session 内） |
-
----
-
-## 波 1 E2E 发现（2026-07-20）
-
-### BUG-007: DELETE /api/v1/reports/{id} 端点未实现 🔍 @e2e 🟢
-- **状态**：🟢 已解决 (2026-07-20 12:30)
-- **发现日期**：2026-07-20
-- **发现者**：涇仔（Wave 1 E2E 测试中跨 spec 隔离发现）
-- **优先级**：🟢 P2
-- **症状**：调用 `DELETE /api/v1/reports/{id}` 返回 500 INTERNAL_ERROR
-- **根因**：`ReportController` 未实现 `@DeleteMapping` 端点，全局 fallback 后返回 500
-- **证据**：原 `curl -X DELETE http://localhost:8080/api/v1/reports/999` 返回 `HTTP 500`
-- **修复**：
-  1. `ReportService.deleteById(Long id)` （事务、existsById 预检 → deleteById → log）
-  2. `ReportController.delete()`（`@DeleteMapping("/{id}")` → service.deleteById → 204）
-  3. 文档更新到 `ReportController.java` 4端点 → 5端点 + `02-api-design § 3.7`
-- **验证**：
-  -  `DELETE /api/v1/reports/999` 返回 404 REPORT_NOT_FOUND
-  -  `DELETE /api/v1/reports/{realId}` 返回 204 No Content
-  - 预留后续 UI 上添加「删除周报」按钮的 API
-- **commit**：`47db033` 后续补充提交
 
 ### Bug 来源分布
 
 | 来源 | 数量 | 占比 |
 |------|------|------|
-| E2E 测试发现 | 6 | 75% |
-| 开发过程中发现 | 1 | 12.5% |
-| Code Review 发现 | 1 | 12.5% |
+| E2E 测试发现 | 7 | 77.8% |
+| Phase 1-4A Phase4 wave1 中发现 | 1 | 11.1% |
+| 设计补全（DELETE）中发现 | 1 | 11.1% |
 
-**关键观察**：75% bug 由 E2E 测试发现，验证 E2E 测试在质量保障中的核心价值。
+**关键观察**：77.8% bug 由 E2E 测试发现，验证 E2E 测试在质量保障中的核心价值。
+
+---
+
+## 历史里程碑（13:30 → 14:05 完工流水）
+
+| 时间 | 事件 | commit |
+|------|------|--------|
+| 13:30 | Wave 1 E2E 完成 + BUG-007 发现 | `47db033` |
+| 13:30 | Wave 2/3 E2E + BUG-007 修复 | `4b62706` |
+| 14:00 | T1-T4 工程价值任务 + 测试 | `a2d42b5` |
+
+---
+
+## 后续预留项（非 bug，纯规划）
+
+### Q-048 (预留)：前端组件测试
+- **现状**：0 个 Vue 组件级单元测试（仅 E2E 覆盖）
+- **决策**：Phase 2 启动时引入 Vitest + @vue/test-utils
+- **优先级**：🟢 P2
+
+### Q-049 (预留)：性能压测
+- **现状**：仅 E2E-18 100 条历史性能基准
+- **决策**：MVP 验收通过后做正式压测（JMeter / k6）
+- **优先级**：🟢 P2
+
+### Q-050 (预留)：正式 README + 用户手册
+- **现状**：工程 README 简略，T6 部署取消（无远程部署）
+- **决策**：MVP 验收报告中加用户使用手册节
+- **优先级**：🟢 P2
+
+---
