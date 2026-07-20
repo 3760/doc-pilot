@@ -1,7 +1,13 @@
 <template>
   <div class="app-container">
     <AppHeader />
-    <ModeBadge :mode="sessionStore.mode" :can-skip="sessionStore.mode === 'B'" @skip="onSkipHistory" />
+    <ModeBadge
+      :mode="sessionStore.mode"
+      :can-skip="sessionStore.mode === 'B'"
+      :can-skip-followup="sessionStore.mode === 'C'"
+      @skip="onSkipHistory"
+      @skip-followup="onSkipFollowup"
+    />
     <div class="app-main">
       <ConversationPanel />
       <PreviewPane />
@@ -56,6 +62,13 @@ onMounted(async () => {
  * 跳过衔接（模式 B → 模式 A）
  */
 function onSkipHistory() {
+  sessionStore.setMode('A');
+}
+
+/**
+ * T4 跳过追问（模式 C → 模式 A）
+ */
+function onSkipFollowup() {
   sessionStore.setMode('A');
 }
 </script>

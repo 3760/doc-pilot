@@ -23,9 +23,14 @@
             {{ formatTime(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="80">
+        <el-table-column label="操作" width="160">
           <template #default="{ row }">
             <el-button link type="primary" @click.stop="onLoad(row)">加载</el-button>
+            <el-popconfirm title="确认删除该周报？" @confirm.stop="onDelete(row)">
+              <template #reference>
+                <el-button link type="danger" @click.stop>删除</el-button>
+              </template>
+            </el-popconfirm>
           </template>
         </el-table-column>
       </el-table>
@@ -43,6 +48,7 @@ import { ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { reportsApi } from '@/api';
 import { useSessionStore } from '@/stores/session';
+import { useReportStore } from '@/stores/report';
 import type { Report } from '@/types';
 
 const props = defineProps<{
@@ -105,6 +111,24 @@ async function onLoad(report: Report) {
 
 function onRowClick(row: Report) {
   onLoad(row);
+}
+
+/**
+ * 删除周报 (T3: UI 按钮 + BUG-007 后端 DELETE 端点)
+ */
+async function onDelete(row: Report) {
+  try {
+    await reportsApi.delete(row.id!);
+    ElMessage.success(`已删除周报：${row.title}`);
+    await loadList(); // 刷新列表
+    // 如果删除的是当前报告，重置 session
+    const reportStore = useReportStore();
+    if (row.id === reportStore.currentId) {
+      sessionStore.resetSession();
+    }
+  } catch (e: any) {
+    ElMessage.error(`删除失败：${e.message || '未知错误'}`);
+  }
 }
 
 function onClosed() {

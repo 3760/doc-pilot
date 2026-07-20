@@ -6,6 +6,10 @@
     <el-button v-if="canSkip" link size="small" @click="$emit('skip')">
       跳过衔接 → 转模式 A
     </el-button>
+    <!-- T4: 模式 C 可跳过追问，直接跳用户输入 -->
+    <el-button v-if="canSkipFollowup" link size="small" type="warning" @click="$emit('skip-followup')">
+      跳过追问 → 进入输入
+    </el-button>
   </div>
 </template>
 
@@ -15,11 +19,15 @@ import type { Mode } from '@/types';
 
 const props = defineProps<{
   mode: Mode;
+  /** 模式 B 历史衔接可跳过 */
   canSkip?: boolean;
+  /** 模式 C 追问可跳过 */
+  canSkipFollowup?: boolean;
 }>();
 
 defineEmits<{
   skip: [];
+  'skip-followup': [];
 }>();
 
 const modeDescriptionMap: Record<Mode, string> = {

@@ -187,10 +187,117 @@ public class ReportService {
                       <p>由 DocPilot 生成 · AI 驱动智能文档工作平台</p>
                     </footer>
                   </article>
+                  <script>
+                    %s
+                  </script>
                 </body>
                 </html>
                 """.formatted(escapeHtml(title), css, escapeHtml(title), createdAt,
-                        escapeHtml(report.getTemplateId()), content);
+                        escapeHtml(report.getTemplateId()),
+                        renderCharts(content),    // 替换 content 中的 <!-- chart: ... --> 占位符为 canvas + JS
+                        renderChartScripts(content)); // 生成 Chart.js 初始化脚本
+    }
+
+    /**
+     * 处理 report content 中的 <!-- chart: type data={...} --> 占位符
+     * 替换为可绘制的 &lt;canvas&gt; 元素.
+     *
+     * <p>支持类型：
+     * <ul>
+     *   <li>completion_pie — 完成度饼图</li>
+     *   <li>priority_bar   — 优先级柱状图</li>
+     *   <li>progress_bar   — 进度条</li>
+     * </ul>
+     */
+    String renderCharts(String content) {
+        if (content == null || content.isBlank()) return "";
+        java.util.regex.Matcher matcher = CHART_PATTERN.matcher(content);
+        StringBuilder sb = new StringBuilder();
+        int chartId = 0;
+        int lastEnd = 0;
+        while (matcher.find()) {
+            sb.append(content, lastEnd, matcher.start());
+            sb.append(String.format(
+                "<div class=\"chart-wrapper\" style=\"max-width:600px;margin:24px auto;padding:16px;background:#f9f9f9;border-radius:8px;\">"
+              + "<canvas id=\"docpilot-chart-%d\"></canvas></div>",
+                chartId));
+            chartId++;
+            lastEnd = matcher.end();
+        }
+        sb.append(content, lastEnd, content.length());
+        return sb.toString();
+    }
+
+    /** Chart 占位符检测正则 */
+    private static final java.util.regex.Pattern CHART_PATTERN =
+        java.util.regex.Pattern.compile("<!--\\s*chart:\\s*(\\w+)\\s+data=(\\S+?)\\s*-->");
+
+    /**
+     * 生成 Chart.js 初始化脚本 (遍历 canvas, 根据 data 绘制图表).
+     */
+    String renderChartScripts(String content) {
+        if (content == null || content.isBlank()) return "";
+        java.util.regex.Matcher matcher = CHART_PATTERN.matcher(content);
+        StringBuilder scripts = new StringBuilder();
+        int chartId = 0;
+        while (matcher.find()) {
+            String chartType = matcher.group(1);
+            String dataJson = matcher.group(2);
+            String config = buildChartConfig(chartType, dataJson);
+            scripts.append(String.format(
+                "try { new Chart(document.getElementById('docpilot-chart-%d').getContext('2d'), %s); } "
+                + "catch(e) { console.warn('Chart %d init failed:', e); }\n",
+                chartId, config, chartId));
+            chartId++;
+        }
+        return scripts.toString();
+    }
+
+    /**
+     * 根据 chart 类型构建 Chart.js 配置 JSON (原生 JS 字符串而非 JSON).
+     */
+    private String buildChartConfig(String chartType, String dataJson) {
+        // Ipsos 青绿主色 + 警告/危险色
+        String primary = "'#1DAFAD'";
+        String primaryLight = "'rgba(29,175,173,0.35)'";
+        String warning = "'rgba(243,156,18,0.85)'";
+        String danger = "'rgba(231,76,60,0.85)'";
+
+        return switch (chartType) {
+            case "completion_pie" -> """
+                { type: 'doughnut',
+                  data: { labels: Object.keys(DATA),
+                          datasets: [{ data: Object.values(DATA),
+                                       backgroundColor: [COLOR1, COLOR2, COLOR3, COLOR4],
+                                       borderColor: 'white', borderWidth: 2 }] },
+                  options: { responsive: true, cutout: '60%',
+                             plugins: { legend: { position: 'bottom' } } } }
+                """.replace("DATA", dataJson)
+                   .replace("COLOR1", primary).replace("COLOR2", warning)
+                   .replace("COLOR3", danger).replace("COLOR4", primaryLight);
+            case "priority_bar" -> """
+                { type: 'bar',
+                  data: { labels: Object.keys(DATA),
+                          datasets: [{ label: '任务数', data: Object.values(DATA),
+                                       backgroundColor: [COLOR1, COLOR2, COLOR3],
+                                       borderRadius: 4 }] },
+                  options: { responsive: true,
+                             scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+                             plugins: { legend: { display: false } } } }
+                """.replace("DATA", dataJson)
+                   .replace("COLOR1", danger).replace("COLOR2", warning)
+                   .replace("COLOR3", primary);
+            case "progress_bar" -> """
+                { type: 'bar',
+                  data: { labels: Object.keys(DATA),
+                          datasets: [{ label: '进度 %', data: Object.values(DATA),
+                                       backgroundColor: COLOR1, borderRadius: 4 }] },
+                  options: { indexAxis: 'y', responsive: true,
+                             scales: { x: { beginAtZero: true, max: 100 } },
+                             plugins: { legend: { display: false } } } }
+                """.replace("DATA", dataJson).replace("COLOR1", primary);
+            default -> "{}";
+        };
     }
 
     /**

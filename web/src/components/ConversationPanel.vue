@@ -97,7 +97,7 @@ async function onSend() {
   sessionStore.setStreaming(true);
   reportStore.resetPreview();
 
-  // 启动 SSE 流
+  // 启动 SSE 流（T2 重连机制：连接中断浏览器自动重连 1-3 次，用户有提示）
   streamChat({
     sessionId: sessionStore.sessionId,
     mode: sessionStore.mode,
@@ -106,6 +106,9 @@ async function onSend() {
     onChunk: (content) => {
       sessionStore.appendToMessage(aiMsg.id, content);
       reportStore.appendToPreview(content);
+    },
+    onReconnecting: (attempt, maxAttempts) => {
+      ElMessage.warning(`网络中断，正在重连 (${attempt}/${maxAttempts})...`);
     },
     onDone: (metadata) => {
       sessionStore.markMessageDone(aiMsg.id);

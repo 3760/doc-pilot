@@ -53,5 +53,13 @@ export const useSessionStore = defineStore('session', {
       this.messages = [];
       this.isStreaming = false;
     },
+
+    /**
+     * T3 重置 session（删除当前周报后调用）
+     */
+    resetSession() {
+      this.reset();
+      this.mode = 'C';
+    },
   },
 });
