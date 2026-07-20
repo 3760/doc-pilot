@@ -22,14 +22,15 @@ import java.util.Map;
 /**
  * 周报 REST API.
  *
- * <p>详见 {@code design/02-api-design.md § 3.3-3.6}。
+ * <p>详见 {@code design/02-api-design.md § 3.3-3.7}。
  *
- * <p>4 个端点：
+ * <p>5 个端点：
  * <ul>
  *   <li>{@code POST /api/v1/reports} - 保存周报</li>
  *   <li>{@code GET /api/v1/reports} - 列出周报</li>
  *   <li>{@code GET /api/v1/reports/{id}} - 获取周报详情</li>
  *   <li>{@code GET /api/v1/reports/{id}/export} - 导出 HTML</li>
+ *   <li>{@code DELETE /api/v1/reports/{id}} - 删除周报</li>
  * </ul>
  */
 @Slf4j
@@ -127,6 +128,19 @@ public class ReportController {
 
         log.info("HTML 导出: reportId={}, size={}KB", id, htmlBytes.length / 1024);
         return ResponseEntity.ok().headers(headers).body(htmlBytes);
+    }
+
+    /**
+     * DELETE /api/v1/reports/{id} - 删除周报.
+     *
+     * <p>详见 design/02 § 3.7。
+     *
+     * <p>幂等性：不存在 ID 返回 404。
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        reportService.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 
     // ===== 私有辅助方法 =====

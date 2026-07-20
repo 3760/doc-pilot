@@ -125,7 +125,9 @@
 
 ## 待办（无当前未解决项）
 
-> 2026-07-20 18:00 之前发现的 6 个 bug 全部已解决
+> 2026-07-20 12:30 之前发现的 7 个 bug 全部已解决
+>
+> **零待处理项**
 
 ---
 
@@ -143,17 +145,23 @@
 
 ## 波 1 E2E 发现（2026-07-20）
 
-### BUG-007: DELETE /api/v1/reports/{id} 端点未实现 🔍 @e2e ⏳
-- **状态**：⏳ 未修复
+### BUG-007: DELETE /api/v1/reports/{id} 端点未实现 🔍 @e2e 🟢
+- **状态**：🟢 已解决 (2026-07-20 12:30)
 - **发现日期**：2026-07-20
 - **发现者**：涇仔（Wave 1 E2E 测试中跨 spec 隔离发现）
 - **优先级**：🟢 P2
 - **症状**：调用 `DELETE /api/v1/reports/{id}` 返回 500 INTERNAL_ERROR
 - **根因**：`ReportController` 未实现 `@DeleteMapping` 端点，全局 fallback 后返回 500
-- **证据**：curl `http://localhost:8080/api/v1/reports/193` 报 500
-- **当前应对**：Wave 1 E2E 使用 `psql TRUNCATE` 实现跱 spec 隔离
-- **建议**：如需使用 API delete，实现 ReportController.delete() + 调用 ReportRepository.deleteById()
-- **有无设计文档**：09-conversation-flow & 02-data-model 未提及删除 API（设计意图可能是有保留策略）
+- **证据**：原 `curl -X DELETE http://localhost:8080/api/v1/reports/999` 返回 `HTTP 500`
+- **修复**：
+  1. `ReportService.deleteById(Long id)` （事务、existsById 预检 → deleteById → log）
+  2. `ReportController.delete()`（`@DeleteMapping("/{id}")` → service.deleteById → 204）
+  3. 文档更新到 `ReportController.java` 4端点 → 5端点 + `02-api-design § 3.7`
+- **验证**：
+  -  `DELETE /api/v1/reports/999` 返回 404 REPORT_NOT_FOUND
+  -  `DELETE /api/v1/reports/{realId}` 返回 204 No Content
+  - 预留后续 UI 上添加「删除周报」按钮的 API
+- **commit**：`47db033` 后续补充提交
 
 ### Bug 来源分布
 

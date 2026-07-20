@@ -73,6 +73,25 @@ public class ReportService {
     }
 
     /**
+     * 按 ID 删除周报.
+     *
+     * <p>业务逻辑（设计 03 § 6 状态机）：周报可重新生成（删除旧 → 重新存档）；
+     * MVP 阶段提供单条删除，端点路径：DELETE /api/v1/reports/{id}。
+     *
+     * <p>幂等性：不存在 ID 返回 404（不静默成功）。
+     *
+     * @throws ReportNotFoundException 周报不存在
+     */
+    @Transactional
+    public void deleteById(Long id) {
+        if (!reportRepository.existsById(id)) {
+            throw new ReportNotFoundException(id);
+        }
+        reportRepository.deleteById(id);
+        log.info("周报删除成功: id={}", id);
+    }
+
+    /**
      * 列出周报（按创建时间倒序）.
      *
      * <p>详见 {@code design/02-api-design.md § 3.4}。
