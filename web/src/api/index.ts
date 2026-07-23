@@ -57,12 +57,12 @@ export const reportsApi = {
 export const templatesApi = {
   async list() {
     const res = await http.get('/templates');
-    return res.data;
+    return res.data.templates;  // ✅ C2 fix: 后端返 {templates:[...]}, 取数组
   },
 
   async detail(templateId: string) {
     const res = await http.get(`/templates/${templateId}`);
-    return res.data;
+    return res.data;  // 后端直接返 TemplateConfig 对象，无需 .templates
   },
 };
 
@@ -81,8 +81,11 @@ export interface StreamOptions {
   mode: 'A' | 'B' | 'C';
   message: string;
   templateHint?: string;
+  /** AI 正常回复正文（不含 thinking 块）*/
   onChunk: (content: string) => void;
-  onDone: (metadata: { tokensUsed: number; mode?: string }) => void;
+  /** AI thinking 推理块（可折叠显示，不进入预览）——MVP 阶段可选，streaming 升级后启用*/
+  onThink?: (thinking: string) => void;
+  onDone: (metadata: { tokensUsed: number; mode?: string; reportContent?: string }) => void;
   onError: (error: Error) => void;
   /** 重连事件回调（用于 UI 提示） */
   onReconnecting?: (attempt: number, maxAttempts: number) => void;

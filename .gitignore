@@ -137,3 +137,20 @@ tmp/
 *.rej
 package-lock.json.bak
 yarn.lock.bak
+
+# ---------- DocPilot specific ----------
+# IDE 临时配置 (IntelliJ .run 目录)
+.run/
+
+# Test output (Playwright 自动生成)
+tests-e2e/report/
+playwright-report/
+
+# Project output (E2E 截图、demo 文件)
+output/
+
+# Docker compose backup files
+docker-compose.yml.bak*
+
+# Playwright test results JSON
+results.json

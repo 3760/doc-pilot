@@ -14,10 +14,18 @@
       </el-button-group>
     </div>
     <div class="preview-content" v-loading="sessionStore.isStreaming || reportStore.isSaving">
+      <!-- 有内容：实时展示（老大 16:50 反馈预览区要跟聊天同步）-->
       <div v-if="reportStore.previewHtml" v-html="renderedPreview" class="markdown-body"></div>
+      <!-- 流式中但还没内容：骨架屏 -->
+      <div v-else-if="sessionStore.isStreaming" class="generating-preview">
+        <p class="generating-icon">⚙️</p>
+        <p>AI 正在生成周报...</p>
+        <p class="hint">请稍候，生成完成后将自动显示预览</p>
+      </div>
+      <!-- 空状态 -->
       <div v-else class="empty-preview">
-        <p>📝 等待 AI 生成预览...</p>
-        <p class="hint">在左侧输入框开始对话</p>
+        <p>📝 等待 AI 生成周报</p>
+        <p class="hint">在右侧开始对话，周报生成后将自动显示在此</p>
       </div>
     </div>
   </div>
@@ -27,7 +35,20 @@
 import { computed } from 'vue';
 import { Download, FolderOpened } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
-import { marked } from 'marked';
+import { Marked } from 'marked';
+import { markedHighlight } from 'marked-highlight';
+import hljs from 'highlight.js';
+
+const markedInstance = new Marked(
+  markedHighlight({
+    langPrefix: 'hljs language-',
+    highlight(code: string, lang: string) {
+      const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+      return hljs.highlight(code, { language }).value;
+    },
+  })
+);
+markedInstance.setOptions({ gfm: true, breaks: true });
 import { useSessionStore } from '@/stores/session';
 import { useReportStore } from '@/stores/report';
 import { useTemplateStore } from '@/stores/template';
@@ -38,28 +59,23 @@ const reportStore = useReportStore();
 const templateStore = useTemplateStore();
 
 /**
- * 把 AI 输出的 markdown 渲染为 HTML（marked 12.x 安全版本）。
+ * 把 AI 输出的 markdown 渲染为 HTML（marked 12.x 安全版本）.
  *
  * 设计 03 § 3.3：LLM 输出 markdown 格式
  * 设计 04 § 8.1 XSS 防御：marked 默认转义 script/style 等危险标签
+ *
+ * 注意：预览只在 done 时更新（最终周报内容），不显示流式聊天过程。
  */
 const renderedPreview = computed(() => {
   const md = reportStore.previewHtml || '';
   try {
-    // marked v12 默认 DOMPurify 不开，但 sanitize=false 也已转义常见 XSS
-    // MVP 阶段先用默认配置（速度优先），Phase 2 加 DOMPurify
-    return marked.parse(md, { async: false }) as string;
+    return markedInstance.parse(md) as string;
   } catch (e) {
     console.warn('Markdown 渲染失败，回退到原文:', e);
     return md;
   }
 });
 
-/**
- * 保存周报到 DB（设计 02 § 3.3 POST /api/v1/reports）.
- *
- * 替代旧实现：localStorage + Blob（localStorage 仅作为草稿备份保留）
- */
 async function onSaveDraft() {
   if (!reportStore.previewHtml) {
     ElMessage.warning('暂无可保存的内容');
@@ -69,11 +85,9 @@ async function onSaveDraft() {
   const template = templateStore.currentTemplate;
   const templateId = template?.id || template?.templateId || 'weekly-report-standard';
 
-  // 自动从 markdown 提取标题（取第一个 H1）
   const titleMatch = reportStore.previewHtml.match(/^#\s+(.+)$/m);
   const title = titleMatch ? titleMatch[1].trim() : `周报 ${new Date().toLocaleDateString('zh-CN')}`;
 
-  // 提取 summary（第一个段落或前 200 字）
   const summaryMatch = reportStore.previewHtml.match(/^(?!#)(.+)$/m);
   const summary = summaryMatch ? summaryMatch[1].trim().substring(0, 200) : '';
 
@@ -83,7 +97,7 @@ async function onSaveDraft() {
       sessionId: sessionStore.sessionId,
       templateId,
       title,
-      content: renderedPreview.value,  // 保存已渲染的 HTML（不是原始 markdown）
+      content: renderedPreview.value,
       summary,
       metadata: {
         mode: sessionStore.mode,
@@ -94,7 +108,6 @@ async function onSaveDraft() {
     reportStore.markSaved();
     ElMessage.success(`周报已保存（ID: ${saved.id}）`);
 
-    // 草稿入 localStorage 备份（设计 05 § 5.3）
     try {
       localStorage.setItem('docpilot-draft', reportStore.previewHtml);
     } catch (e) {
@@ -107,13 +120,7 @@ async function onSaveDraft() {
   }
 }
 
-/**
- * 导出 HTML（设计 02 § 3.6 GET /api/v1/reports/{id}/export）.
- *
- * 先确保已保存，然后从后端拉取完整 HTML（嵌入 CSS + Chart.js CDN）。
- */
 async function onExport() {
-  // 如果还没保存，先保存
   if (!reportStore.currentId) {
     ElMessage.warning('请先保存周报再导出');
     return;
@@ -156,29 +163,53 @@ async function onExport() {
 
 .preview-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: 14px;
   color: var(--text-color);
 }
 
 .preview-content {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: 16px;
+  font-size: 13px;
+}
+
+.generating-preview {
+  text-align: center;
+  padding: 60px 16px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.generating-icon {
+  font-size: 40px;
+  animation: spin 2s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.generating-preview p {
+  margin: 6px 0;
+  font-size: 13px;
 }
 
 .empty-preview {
   text-align: center;
-  padding: 60px 20px;
+  padding: 50px 16px;
   color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .empty-preview p {
-  margin: 8px 0;
+  margin: 6px 0;
 }
 
 .empty-preview .hint {
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 /* Markdown 渲染样式（与导出 HTML 风格一致）*/

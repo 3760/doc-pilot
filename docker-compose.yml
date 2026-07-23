@@ -1,15 +1,11 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
     container_name: docpilot-postgres
-    environment:
-      POSTGRES_DB: docpilot_db
-      POSTGRES_USER: docpilot
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docpil_dev_password}
+    env_file:
+      - ./server/.env
     ports:
-      - "5433:5432"   # 宿主机 5433 → 容器 5432（避免与本地 PG 冲突）
+      - "5433:5432"
     volumes:
       - docpilot_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -28,22 +24,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Q-047: env_file is the single source of truth.
+    # LLM_*/QWEN_*/SELECT_LLM/POSTGRES_* are read by Spring Boot from
+    # env_file-injected vars, resolved through application.yml placeholders
+    # (${VAR:default}). Only docker-internal wiring (URL service name + JVM opts)
+    # stays as static values here.
+    env_file:
+      - ./server/.env
     environment:
-      # 数据库（用 docker service 名作为主机名）
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docpil_dev_password}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/docpilot_db
       SPRING_DATASOURCE_USERNAME: docpilot
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-docpil_dev_password}
-      # LLM
-      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.minimax.io/anthropic}
-      LLM_API_KEY: ${LLM_API_KEY:-sk-placeholder}
-      LLM_MODEL: ${LLM_MODEL:-MiniMax-M3}
-      # Fallback
-      SELECT_LLM: ${SELECT_LLM:-m3}
-      QWEN_ENABLED: ${QWEN_ENABLED:-false}
-      QWEN_BASE_URL: ${QWEN_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
-      QWEN_API_KEY: ${QWEN_API_KEY:-sk-qwen-placeholder}
-      QWEN_MODEL: ${QWEN_MODEL:-qwen-plus}
       JAVA_OPTS: "-Xms256m -Xmx512m"
     ports:
       - "8080:8080"
@@ -58,7 +48,7 @@ services:
     depends_on:
       - server
     ports:
-      - "8081:80"   # 宿主机 8081 → 容器 80（Nginx）
+      - "8081:80"
     networks:
       - docpilot-net
 

@@ -7,7 +7,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.dao.DataAccessException;
+import org.springframework.transaction.CannotCreateTransactionException;
 
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Map;
 
@@ -76,6 +80,48 @@ public class GlobalExceptionHandler {
         log.warn("参数校验失败: {}", ex.getMessage());
         return build(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", ex.getMessage(),
                 Map.of());
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        log.warn("参数类型不匹配: {}", ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED",
+                "参数类型错误: " + ex.getName() + " 应为 " +
+                        (ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "未知"),
+                Map.of("parameter", ex.getName()));
+    }
+
+    @ExceptionHandler(BusinessExceptions.ValidationException.class)
+    public ResponseEntity<Map<String, Object>> handleValidation(BusinessExceptions.ValidationException ex) {
+        log.warn("业务参数校验失败: {}", ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", ex.getMessage(),
+                Map.of());
+    }
+
+    /**
+     * 数据库连接失败（PG 不可用、网络断开等）→ 503 DB_CONNECTION_FAILED.
+     *
+     * <p>参考 design/04-runtime-design.md § 2.1 错误处理矩阵。
+     */
+    @ExceptionHandler(CannotCreateTransactionException.class)
+    public ResponseEntity<Map<String, Object>> handleCannotCreateTx(CannotCreateTransactionException ex) {
+        log.error("无法创建事务（数据库连接失败）", ex);
+        return build(HttpStatus.SERVICE_UNAVAILABLE, "DB_CONNECTION_FAILED",
+                "数据库连接失败，请稍后重试", Map.of());
+    }
+
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<Map<String, Object>> handleDataAccess(DataAccessException ex) {
+        log.error("数据库访问异常", ex);
+        return build(HttpStatus.SERVICE_UNAVAILABLE, "DB_CONNECTION_FAILED",
+                "数据库连接失败，请稍后重试", Map.of());
+    }
+
+    @ExceptionHandler(SQLException.class)
+    public ResponseEntity<Map<String, Object>> handleSql(SQLException ex) {
+        log.error("SQL 异常", ex);
+        return build(HttpStatus.SERVICE_UNAVAILABLE, "DB_CONNECTION_FAILED",
+                "数据库连接失败，请稍后重试", Map.of());
     }
 
     @ExceptionHandler(Exception.class)

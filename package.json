@@ -1,0 +1,22 @@
+{
+  "name": "docpilot-tests-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DocPilot end-to-end tests via Playwright (verify MVP business flow + real LLM)",
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:flaky": "playwright test --grep @flaky --retries=3",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report",
+    "test:c36": "playwright test e2e/c36-empty-history-mode-c.spec.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.10.0"
+  },
+  "author": "虾仔",
+  "license": "UNLICENSED"
+}

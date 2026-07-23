@@ -5,7 +5,10 @@ export type Mode = 'A' | 'B' | 'C';
 export interface ChatMessage {
   id: string;
   role: 'user' | 'ai' | 'system';
+  /** 模型回复正文（不含 thinking 块）*/
   content: string;
+  /** thinking 块内容（AI 推理过程，可折叠显示）*/
+  thinking?: string;
   timestamp: number;
   isStreaming?: boolean;
 }

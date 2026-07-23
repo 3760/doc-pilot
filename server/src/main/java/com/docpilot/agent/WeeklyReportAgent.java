@@ -96,6 +96,7 @@ public interface WeeklyReportAgent {
             """)
     String generateContextualQuestions(
         @MemoryId String sessionId,
+        @UserMessage String userMessage,
         @V("lastWeekPlan") String lastWeekPlan,
         @V("lastWeekRisks") String lastWeekRisks
     );
@@ -122,6 +123,7 @@ public interface WeeklyReportAgent {
             4. 风险/支持要具体（不要说空话）
             5. 输出 Markdown 格式
             """)
+    @UserMessage("请根据以下信息生成周报：\n{{collectedInfo}}\n\n周报格式要求：\n{{outputFormat}}")
     String generateFinalReport(
         @MemoryId String sessionId,
         @V("collectedInfo") String collectedInfo,

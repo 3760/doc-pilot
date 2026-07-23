@@ -9,8 +9,9 @@
       @skip-followup="onSkipFollowup"
     />
     <div class="app-main">
-      <ConversationPanel />
+      <!-- 老大 16:41 调换：预览在左，聊天在右 -->
       <PreviewPane />
+      <ConversationPanel />
     </div>
     <StatusBar />
   </div>

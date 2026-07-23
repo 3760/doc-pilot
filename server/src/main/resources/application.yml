@@ -17,6 +17,11 @@ spring:
     username: docpilot
     password: ${POSTGRES_PASSWORD:docpil_dev_password}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      # 快速失败：PG 不可用时不应 hang 住太久（默认 30s）
+      connection-timeout: 3000      # 3s
+      validation-timeout: 2000      # 2s
+      initialization-fail-timeout: -1  # 不阻止启动（PG 暂时不可用）
 
   # JPA 配置
   jpa:

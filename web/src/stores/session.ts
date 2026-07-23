@@ -30,9 +30,27 @@ export const useSessionStore = defineStore('session', {
       if (msg) msg.content += content;
     },
 
+    /** 追加 thinking 内容到指定 AI 消息（可折叠展示）*/
+    appendToThinking(id: string, thinking: string) {
+      const msg = this.messages.find((m) => m.id === id);
+      if (msg) {
+        msg.thinking = (msg.thinking || '') + thinking;
+      }
+    },
+
     markMessageDone(id: string) {
       const msg = this.messages.find((m) => m.id === id);
       if (msg) msg.isStreaming = false;
+    },
+
+    /** 获取指定消息的 content */
+    getMessageContent(id: string): string | undefined {
+      return this.messages.find((m) => m.id === id)?.content;
+    },
+
+    /** 移除指定消息（过滤 JSON 等非对话内容时使用）*/
+    removeMessage(id: string) {
+      this.messages = this.messages.filter((m) => m.id !== id);
     },
 
     setStreaming(streaming: boolean) {
